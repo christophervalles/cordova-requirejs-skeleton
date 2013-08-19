@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no;" />
+    <meta charset="utf-8">
+
+    <!-- iPad/iPhone specific css below, add after your main css >
+    <link rel="stylesheet" media="only screen and (max-device-width: 1024px)" href="ipad.css" type="text/css" />
+    <link rel="stylesheet" media="only screen and (max-device-width: 480px)" href="iphone.css" type="text/css" />
+    -->
+
+    <!-- TODO: revisit dynamic loading of cordova.js when its 2.0 is released -->
+    <script>
+    //This value replaced when installing into a phonegap built app.
+    var phonegapEnv = 'web';
+    (function () {
+        var match,
+            envRegExp = /env=([\w\d\\.-_]+)/,
+            match = envRegExp.exec((typeof location !== 'undefined' && location.href.split('?')[1]) || '');
+
+        if (match && match[1]) {
+            phonegapEnv = match[1];
+        }
+
+        document.write('<script src="js/lib/' + phonegapEnv + '/cordova.js">\<\/script>');
+    }());
+    </script>
+
+    <script data-main="js/app" src="js/lib/require.js"></script>
+</head>
+<body>
+    <h1>Hello World 3</h1>
+</body>
+</html>

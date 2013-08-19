@@ -1,0 +1,132 @@
+/*jslint regexp: true */
+/*global define, console, process */
+
+define(function (require) {
+    'use strict';
+
+    var tempDir = 'temp',
+        reverseDomain = 'com.trashdevs.UnknownGame',
+        reverseSuffix = reverseDomain.split('.').pop(),
+        reverseDomainPath = reverseDomain.replace(/\./g, '/'),
+
+        androidBase = 'android/UnknownGame/',
+
+        iosBase = 'ios/UnknownGame/';
+
+    //Generates an URL that is suitable for use in URL access lists used
+    //by the native platforms. Assumes the URL has a slash after the domain.
+    function accessUrl(url, trimProtocol) {
+        var parts = url.split('/');
+        url = url = parts.slice((trimProtocol ? 2 : 0), 3).join('/');
+        return url.replace(/:\d+$/, '');
+    }
+
+    //Rewrites the global var that contains the env name to be specific
+    //to the given name instead of just 'web'.
+    function updateEnv(text, envName) {
+        return text.replace(/var\s*phonegapEnv\s*=\s*['"][^'"]['"]/,
+                            "var phonegapEnv = '" + envName + "'");
+    }
+
+    function copyRedirector(v, indexPath, env, url) {
+        v.copyFile('www/redirector.html', indexPath);
+
+        v.write(indexPath, v.template(v.read(indexPath), {
+            TARGET: url,
+            ENV: env
+        }));
+    }
+
+    return {
+
+        android: function (d, v, namedArgs, url) {
+            var xmlPrefix = androidBase + 'res/xml/config.xml',
+                indexPath = androidBase + 'assets/www/index.html',
+                contents;
+
+
+            //Copy all the directory contents since the redirector.html page
+            //may use some of them.
+            v.copyDir('www', androidBase + 'assets/www');
+
+            if (url) {
+                url += '?env=android';
+
+                copyRedirector(v, indexPath, 'android', url);
+
+                //Allow access to live reload URL in the cordova.xml file.
+                v.copyFile(xmlPrefix, tempDir + '/' + xmlPrefix);
+                contents = v.read(xmlPrefix)
+                            .replace(/<access/,
+                                     //Remove the port from the url.
+                                     '<access origin="' + accessUrl(url) + '"/><access');
+                v.write(xmlPrefix, contents);
+
+            } else {
+                contents = v.read(indexPath);
+                v.write(indexPath, updateEnv(contents, 'android'));
+            }
+
+            function cleanUp(value) {
+                if (url) {
+                    //Copy original files back over.
+                    v.copyFile(tempDir + '/' + xmlPrefix, xmlPrefix);
+                    v.rm(tempDir);
+                }
+                return value;
+            }
+
+            d.resolve(v.shell(androidBase + 'cordova/run', {
+                useConsole: !namedArgs.quiet
+            }).then(cleanUp, cleanUp));
+        },
+
+        ios: function (d, v, namedArgs, url) {
+            var contents,
+                indexPath = iosBase + 'www/index.html',
+                iosPListPath = 'ios/UnknownGame/UnknownGame/config.xml';
+
+            //Copy all the directory contents since the redirector.html page
+            //may use some of them.
+            v.copyDir('www', iosBase + 'www');
+
+            if (url) {
+                url += '?env=ios';
+
+                copyRedirector(v, indexPath, 'ios', url);
+            } else {
+                contents = v.read(indexPath);
+                v.write(indexPath, updateEnv(contents, 'ios'));
+            }
+
+            function cleanUp(value) {
+                if (url) {
+                    //Copy original files back over.
+                    v.copyFile(tempDir + '/' + iosPListPath, iosPListPath);
+                    v.rm(tempDir);
+                }
+                return value;
+            }
+
+            d.resolve(v.shell(iosBase + 'cordova/run', {
+                useConsole: !namedArgs.quiet
+            }).then(cleanUp, cleanUp));
+        },
+
+        build: {
+            flags: {
+                //Does not print the build output.
+                'q': 'quiet'
+            },
+
+            run: function (d, v, namedArgs) {
+                //Remove the old dir
+                v.rm('www-built');
+
+                d.resolve(v.spawn('node', ['tools/r.js', '-o', 'tools/build.js'], {
+                    useConsole: !namedArgs.quiet
+                }));
+            }
+        }
+    };
+});
